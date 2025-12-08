@@ -11,6 +11,12 @@ load_dotenv()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Lifespan: Starting up...")
+    # Create database tables on startup
+    from app.db.base import Base
+    from app.db.session import sync_engine
+    print("Creating database tables...")
+    Base.metadata.create_all(bind=sync_engine)
+    print("Database tables created successfully!")
     yield
     print("Lifespan: Shutting down...")
 
@@ -18,6 +24,7 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     debug=settings.DEBUG,
+    lifespan=lifespan,
 )
 
 # CORS 설정
