@@ -29,3 +29,9 @@ class CreditPurchase(BaseModel):
 
 class CreditBalance(BaseModel):
     balance: int
+
+
+class StripeCheckoutRequest(BaseModel):
+    package: str  # "starter", "pro", or "business"
+    success_url: str
+    cancel_url: str
