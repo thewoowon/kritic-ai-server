@@ -38,6 +38,9 @@ async def create_analysis(
 ):
     """Create a new analysis request"""
 
+    print("analysis_data.models:", analysis_data.models)
+    print("current_user.credits_balance:", current_user.credits_balance)
+
     # Calculate credit cost
     credit_cost = len(analysis_data.models) * 10
 
