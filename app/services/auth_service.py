@@ -153,12 +153,58 @@ async def google_auth(request: Request, db: Session):
 
 
 async def google_auth_web(request: Request, db: Session):
+    """
+    Google OAuth for web - accepts either 'code' (authorization code flow) or 'token' (id_token flow)
+    """
     try:
         data = await request.json()
         code = data.get("code")
+        id_token = data.get("token")
 
+        # Handle id_token flow (from NextAuth)
+        if id_token:
+            # Google 서버에 idToken 검증 요청
+            try:
+                response = requests.get(GOOGLE_TOKEN_INFO_URL, params={"id_token": id_token})
+                response.raise_for_status()
+            except requests.RequestException as e:
+                raise HTTPException(status_code=400, detail=f"Failed to verify token: {str(e)}")
+
+            token_info = response.json()
+            email = token_info.get("email")
+
+            if not email:
+                raise HTTPException(status_code=400, detail="Email is missing in token")
+
+            # 사용자 조회 또는 생성
+            user = db.query(User).filter(User.email == email).first()
+
+            if not user:
+                # 새로운 사용자 생성 (초기 100 크레딧 자동 부여)
+                user = create_user(
+                    db=db,
+                    user=UserCreate(
+                        name=token_info.get("name", "Unknown"),
+                        nickname="",
+                        email=email,
+                        phone_number="",
+                        address="",
+                        src=token_info.get("picture", DEFAULT_PROFILE_PIC),
+                        is_auto_login=False,
+                        job="",
+                        job_description="",
+                        is_job_open=0,
+                    ),
+                )
+
+            return JSONResponse(
+                content={"user_id": user.id},
+                status_code=200,
+            )
+
+        # Handle authorization code flow (original implementation)
         if not code:
-            raise HTTPException(status_code=400, detail="code is required")
+            raise HTTPException(status_code=400, detail="code or token is required")
 
         REDIRECT_URI = "https://lululala.at/auth/callback/google"
         print("REDIRECT_URI:", REDIRECT_URI)
@@ -204,9 +250,21 @@ async def google_auth_web(request: Request, db: Session):
         user = db.query(User).filter(User.email == email).first()
 
         if not user:
-            return JSONResponse(
-                content={"user": "", "access_token": ""},
-                status_code=200,
+            # 새로운 사용자 생성 (초기 100 크레딧 자동 부여)
+            user = create_user(
+                db=db,
+                user=UserCreate(
+                    name=user_json.get("name", "Unknown"),
+                    nickname="",
+                    email=email,
+                    phone_number="",
+                    address="",
+                    src=user_json.get("picture", DEFAULT_PROFILE_PIC),
+                    is_auto_login=False,
+                    job="",
+                    job_description="",
+                    is_job_open=0,
+                ),
             )
 
         # 토큰 생성
@@ -234,6 +292,7 @@ async def google_auth_web(request: Request, db: Session):
 
         return JSONResponse(
             content={
+                "user_id": user.id,
                 "user": user_data,
                 "access_token": access_token,
             },

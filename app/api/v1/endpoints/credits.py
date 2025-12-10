@@ -1,12 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import stripe
 from app.db.base import get_db
 from app.schemas.transaction import CreditBalance, CreditPurchase, TransactionResponse, StripeCheckoutRequest
 from app.models.user import User
 from app.models.transaction import Transaction, TransactionType
-from app.api.v1.endpoints.analyze import get_current_user
 from app.core.config import settings
 
 router = APIRouter()
@@ -16,10 +15,39 @@ if settings.STRIPE_SECRET_KEY:
     stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
+def get_current_user_from_header(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+) -> User:
+    """
+    Get user from Authorization header.
+    For web OAuth flow, accepts 'Bearer <user_id>' temporarily.
+    TODO: Implement proper JWT token validation.
+    """
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization header required")
+
+    try:
+        # Extract user_id from "Bearer <user_id>"
+        scheme, user_id_str = authorization.split()
+        if scheme.lower() != "bearer":
+            raise HTTPException(status_code=401, detail="Invalid authentication scheme")
+
+        user_id = int(user_id_str)
+        user = db.query(User).filter(User.id == user_id).first()
+
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return user
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=401, detail="Invalid authorization header")
+
+
 @router.get("/credits/balance", response_model=CreditBalance)
 def get_credit_balance(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_from_header)
 ):
     """Get user's current credit balance"""
     return CreditBalance(balance=current_user.credits_balance)
@@ -29,7 +57,7 @@ def get_credit_balance(
 def purchase_credits(
     purchase: CreditPurchase,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_from_header)
 ):
     """Purchase credits (Stripe integration would go here)"""
 
@@ -56,7 +84,7 @@ def get_transaction_history(
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_from_header)
 ):
     """Get user's transaction history"""
     transactions = db.query(Transaction).filter(
@@ -70,7 +98,7 @@ def get_transaction_history(
 async def create_checkout_session(
     checkout_request: StripeCheckoutRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_from_header)
 ):
     """Create Stripe checkout session for credit purchase"""
     try:
