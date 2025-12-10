@@ -197,8 +197,18 @@ async def google_auth_web(request: Request, db: Session):
                     ),
                 )
 
+            # JWT 토큰 생성 (30일 유효)
+            access_token_expires = timedelta(days=30)
+            access_token = create_access_token(
+                data={"sub": user.email, "user_id": user.id},
+                expires_delta=access_token_expires
+            )
+
             return JSONResponse(
-                content={"user_id": user.id},
+                content={
+                    "user_id": user.id,
+                    "access_token": access_token
+                },
                 status_code=200,
             )
 
