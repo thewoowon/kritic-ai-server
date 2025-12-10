@@ -102,10 +102,10 @@ async def google_auth(request: Request, db: Session):
         refresh_token_expires = timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
 
         access_token = create_access_token(
-            data={"sub": user.email, "user_id": user.id}, expires_delta=access_token_expires
+            data={"sub": user.email, "user_id": str(user.id)}, expires_delta=access_token_expires
         )
         refresh_token = create_refresh_token(
-            data={"sub": user.email, "user_id": user.id}, expires_delta=refresh_token_expires
+            data={"sub": user.email, "user_id": str(user.id)}, expires_delta=refresh_token_expires
         )
 
         # Refresh Token을 DB에 저장 (Google)
@@ -216,7 +216,7 @@ async def google_auth_web(request: Request, db: Session):
             access_token_expires = timedelta(days=30)
             try:
                 access_token = create_access_token(
-                    data={"sub": user.email, "user_id": user.id},
+                    data={"sub": user.email, "user_id": str(user.id)},  # Convert user.id to string for JWT
                     expires_delta=access_token_expires
                 )
                 print(f"JWT token created successfully")
@@ -309,7 +309,7 @@ async def google_auth_web(request: Request, db: Session):
 
         # 10분 뒤 만료되는 토큰 발급
         access_token = create_access_token(
-            data={"sub": user.email, "user_id": user.id}, expires_delta=access_token_expires
+            data={"sub": user.email, "user_id": str(user.id)}, expires_delta=access_token_expires
         )
 
         # 사용자 데이터 및 토큰 반환
@@ -475,10 +475,10 @@ async def apple_auth(request: Request, db: Session):
         refresh_token_expires = timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
 
         access_token = create_access_token(
-            data={"sub": user.email, "user_id": user.id}, expires_delta=access_token_expires
+            data={"sub": user.email, "user_id": str(user.id)}, expires_delta=access_token_expires
         )
         refresh_token = create_refresh_token(
-            data={"sub": user.email, "user_id": user.id}, expires_delta=refresh_token_expires
+            data={"sub": user.email, "user_id": str(user.id)}, expires_delta=refresh_token_expires
         )
 
         # Refresh Token을 DB에 저장 (Apple)
@@ -552,14 +552,17 @@ async def refresh_token_func(request: Request, db: Session):
                 detail="Invalid refresh token"
             )
 
-        user_id = payload.get("user_id")
+        user_id_str = payload.get("user_id")
         email = payload.get("sub")
 
-        if user_id is None:
+        if user_id_str is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid refresh token"
             )
+
+        # Convert user_id from string to int for database queries
+        user_id = int(user_id_str)
 
         # 3. DB에서 refresh_token 조회
         token_obj = db.query(Token).filter(
@@ -627,10 +630,10 @@ def guest_login(db: Session):
         refresh_token_expires = timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
 
         access_token = create_access_token(
-            data={"sub": user.email, "user_id": user.id}, expires_delta=access_token_expires
+            data={"sub": user.email, "user_id": str(user.id)}, expires_delta=access_token_expires
         )
         refresh_token = create_refresh_token(
-            data={"sub": user.email, "user_id": user.id}, expires_delta=refresh_token_expires
+            data={"sub": user.email, "user_id": str(user.id)}, expires_delta=refresh_token_expires
         )
 
         # Refresh Token을 DB에 저장 (Guest)

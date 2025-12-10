@@ -19,8 +19,8 @@ def decode_token(token: str):
     try:
         logger.info(f"Decoding token: {token}")
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-        user_id: str = payload.get("user_id")
-        if user_id is None:
+        user_id_str = payload.get("user_id")
+        if user_id_str is None:
             logger.warning("Invalid token: Missing user_id")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -31,6 +31,8 @@ def decode_token(token: str):
                 },
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        # Convert user_id from string to int for database queries
+        user_id = int(user_id_str)
         logger.info(f"Token is valid. User ID: {user_id}")
         return user_id
     except jwt.ExpiredSignatureError:
