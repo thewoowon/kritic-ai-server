@@ -212,19 +212,32 @@ async def google_auth_web(request: Request, db: Session):
                     raise
 
             # JWT 토큰 생성 (30일 유효) - 신규 사용자든 기존 사용자든 항상 생성
+            print(f"Creating JWT token for user: id={user.id} (type: {type(user.id).__name__}), email={user.email} (type: {type(user.email).__name__})")
             access_token_expires = timedelta(days=30)
-            access_token = create_access_token(
-                data={"sub": user.email, "user_id": user.id},
-                expires_delta=access_token_expires
-            )
+            try:
+                access_token = create_access_token(
+                    data={"sub": user.email, "user_id": user.id},
+                    expires_delta=access_token_expires
+                )
+                print(f"JWT token created successfully")
+            except Exception as e:
+                print(f"Error creating JWT token: {type(e).__name__}: {str(e)}")
+                raise
 
-            return JSONResponse(
-                content={
-                    "user_id": user.id,
-                    "access_token": access_token
-                },
-                status_code=200,
-            )
+            print(f"Preparing JSON response with user_id={user.id}, access_token length={len(access_token)}")
+            try:
+                response = JSONResponse(
+                    content={
+                        "user_id": user.id,
+                        "access_token": access_token
+                    },
+                    status_code=200,
+                )
+                print(f"JSONResponse created successfully")
+                return response
+            except Exception as e:
+                print(f"Error creating JSONResponse: {type(e).__name__}: {str(e)}")
+                raise
 
         # Handle authorization code flow (original implementation)
         if not code:
