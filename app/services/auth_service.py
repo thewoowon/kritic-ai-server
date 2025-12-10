@@ -165,9 +165,13 @@ async def google_auth_web(request: Request, db: Session):
         if id_token:
             # Google 서버에 idToken 검증 요청
             try:
+                print(f"Verifying id_token: {id_token[:50]}...")  # 디버깅용
                 response = requests.get(GOOGLE_TOKEN_INFO_URL, params={"id_token": id_token})
+                print(f"Google response status: {response.status_code}")
+                print(f"Google response: {response.text[:200]}")  # 처음 200자만
                 response.raise_for_status()
             except requests.RequestException as e:
+                print(f"Token verification error: {str(e)}")
                 raise HTTPException(status_code=400, detail=f"Failed to verify token: {str(e)}")
 
             token_info = response.json()
