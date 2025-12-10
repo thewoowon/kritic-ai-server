@@ -175,19 +175,24 @@ async def google_auth_web(request: Request, db: Session):
                 raise HTTPException(status_code=400, detail=f"Failed to verify token: {str(e)}")
 
             token_info = response.json()
+            print(f"token_info parsed successfully: {list(token_info.keys())}")
+
             email = token_info.get("email")
+            print(f"Extracted email: {email}")
 
             if not email:
                 raise HTTPException(status_code=400, detail="Email is missing in token")
 
             # 사용자 조회 또는 생성
+            print(f"Querying user with email: {email}")
             user = db.query(User).filter(User.email == email).first()
+            print(f"User found: {user is not None}")
 
             if not user:
                 # 새로운 사용자 생성 (초기 100 크레딧 자동 부여)
-                user = create_user(
-                    db=db,
-                    user=UserCreate(
+                print(f"Creating new user with data: name={token_info.get('name')}, email={email}, picture={token_info.get('picture')}")
+                try:
+                    user_create_data = UserCreate(
                         name=token_info.get("name", "Unknown"),
                         nickname="",
                         email=email,
@@ -198,8 +203,13 @@ async def google_auth_web(request: Request, db: Session):
                         job="",
                         job_description="",
                         is_job_open=0,
-                    ),
-                )
+                    )
+                    print(f"UserCreate object created successfully")
+                    user = create_user(db=db, user=user_create_data)
+                    print(f"create_user completed, user.id={user.id}")
+                except Exception as e:
+                    print(f"Error creating user: {type(e).__name__}: {str(e)}")
+                    raise
 
             # JWT 토큰 생성 (30일 유효) - 신규 사용자든 기존 사용자든 항상 생성
             access_token_expires = timedelta(days=30)
