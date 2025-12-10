@@ -197,7 +197,7 @@ async def google_auth_web(request: Request, db: Session):
                     ),
                 )
 
-            # JWT 토큰 생성 (30일 유효)
+            # JWT 토큰 생성 (30일 유효) - 신규 사용자든 기존 사용자든 항상 생성
             access_token_expires = timedelta(days=30)
             access_token = create_access_token(
                 data={"sub": user.email, "user_id": user.id},
