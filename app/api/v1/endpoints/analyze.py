@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import List
 from app.db.base import get_db
@@ -7,25 +8,32 @@ from app.models.analysis import Analysis, AnalysisStatus
 from app.models.user import User
 from app.models.transaction import Transaction, TransactionType
 from app.services.analysis_service import AnalysisService
+from app.core.security import decode_token
 import asyncio
 
 router = APIRouter()
+security = HTTPBearer()
 
 
-def get_current_user(db: Session = Depends(get_db)) -> User:
-    """Mock user for MVP - in production, implement JWT authentication"""
-    user = db.query(User).first()
+def get_current_user_from_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> User:
+    """
+    Get user from JWT token in Authorization header.
+    Validates JWT and returns the authenticated user.
+    """
+    token = credentials.credentials
+
+    # Decode and validate JWT token
+    user_id = decode_token(token)
+
+    # Get user from database
+    user = db.query(User).filter(User.id == user_id).first()
+
     if not user:
-        # Create a default user for testing
-        user = User(
-            name="Test User",
-            email="test@kritic.com",
-            phone_number="000-0000-0000",
-            credits_balance=100
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+        raise HTTPException(status_code=404, detail="User not found")
+
     return user
 
 
@@ -33,8 +41,8 @@ def get_current_user(db: Session = Depends(get_db)) -> User:
 async def create_analysis(
     analysis_data: AnalysisCreate,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_from_token),
+    db: Session = Depends(get_db)
 ):
     """Create a new analysis request"""
 
@@ -125,8 +133,8 @@ async def run_analysis(
 @router.get("/analyze/{analysis_id}", response_model=dict)
 def get_analysis(
     analysis_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_from_token),
+    db: Session = Depends(get_db)
 ):
     """Get analysis results"""
     analysis = db.query(Analysis).filter(
@@ -156,8 +164,8 @@ def get_analysis(
 def get_analysis_history(
     skip: int = 0,
     limit: int = 20,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_from_token),
+    db: Session = Depends(get_db)
 ):
     """Get user's analysis history"""
     analyses = db.query(Analysis).filter(
